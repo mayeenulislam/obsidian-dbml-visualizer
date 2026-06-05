@@ -48,7 +48,11 @@ export default class DBMLVisualizerPlugin extends Plugin {
           title ?? undefined,
         );
       } catch (e: unknown) {
-        el.createEl("pre", { text: "Error parsing DBML:\n" + (e instanceof Error ? e.message : String(e)) });
+        el.createEl("pre", {
+          text:
+            "Error parsing DBML:\n" +
+            (e instanceof Error ? e.message : String(e)),
+        });
       }
     };
 
@@ -366,7 +370,11 @@ export default class DBMLVisualizerPlugin extends Plugin {
     });
   }
 
-  appendRelationElements(parent: Element, relations: Relation[], tableMap: Record<string, Table>) {
+  appendRelationElements(
+    parent: Element,
+    relations: Relation[],
+    tableMap: Record<string, Table>,
+  ) {
     const ns = "http://www.w3.org/2000/svg";
     relations.forEach((r) => {
       const fromT = tableMap[r.fromTable];
@@ -401,7 +409,10 @@ export default class DBMLVisualizerPlugin extends Plugin {
       }
 
       const path = document.createElementNS(ns, "path");
-      path.setAttribute("d", `M ${fromX} ${fromY} C ${c1x} ${fromY}, ${c2x} ${toY}, ${toX} ${toY}`);
+      path.setAttribute(
+        "d",
+        `M ${fromX} ${fromY} C ${c1x} ${fromY}, ${c2x} ${toY}, ${toX} ${toY}`,
+      );
       path.setAttribute("fill", "none");
       path.setAttribute("stroke", "var(--text-faint)");
       path.setAttribute("stroke-width", "1.5");
@@ -427,7 +438,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
       label.setAttribute("font-size", "11");
       label.setAttribute("text-anchor", "middle");
       label.setAttribute("font-family", "monospace");
-      label.textContent = this.escapeXml(r.type);
+      label.textContent = r.type;
       parent.appendChild(label);
     });
   }
@@ -467,7 +478,10 @@ export default class DBMLVisualizerPlugin extends Plugin {
       cls: "dbml-erd-hint-text",
     });
 
-    const pipe = zoomHint.createEl("span", { text: "|", cls: "dbml-erd-hint-pipe" });
+    const pipe = zoomHint.createEl("span", {
+      text: "|",
+      cls: "dbml-erd-hint-pipe",
+    });
 
     const rightHint = zoomHint.createEl("span", {
       text: "Ctrl/⌘+Scroll to zoom",
@@ -476,13 +490,25 @@ export default class DBMLVisualizerPlugin extends Plugin {
 
     const controlsGroup = rightRegion.createDiv({ cls: "dbml-erd-controls" });
 
-    const zoomOutBtn = controlsGroup.createEl("button", { text: "−", cls: "dbml-erd-btn" });
-    const zoomLabel = controlsGroup.createEl("span", { text: "100%", cls: "dbml-erd-zoom-label" });
-    const zoomInBtn = controlsGroup.createEl("button", { text: "+", cls: "dbml-erd-btn" });
+    const zoomOutBtn = controlsGroup.createEl("button", {
+      text: "−",
+      cls: "dbml-erd-btn",
+    });
+    const zoomLabel = controlsGroup.createEl("span", {
+      text: "100%",
+      cls: "dbml-erd-zoom-label",
+    });
+    const zoomInBtn = controlsGroup.createEl("button", {
+      text: "+",
+      cls: "dbml-erd-btn",
+    });
 
     // SVG Creation
     const ns = "http://www.w3.org/2000/svg";
-    const svgEl = document.createElementNS(ns, "svg") as unknown as SVGSVGElement;
+    const svgEl = document.createElementNS(
+      ns,
+      "svg",
+    ) as unknown as SVGSVGElement;
     svgEl.classList.add("dbml-erd-svg");
     svgEl.setAttribute("width", `${bounds.width}`);
     svgEl.setAttribute("height", `${bounds.height}`);
@@ -503,11 +529,17 @@ export default class DBMLVisualizerPlugin extends Plugin {
     defs.appendChild(marker);
     svgEl.appendChild(defs);
 
-    const pathsGroup = document.createElementNS(ns, "g") as unknown as SVGGElement;
+    const pathsGroup = document.createElementNS(
+      ns,
+      "g",
+    ) as unknown as SVGGElement;
     pathsGroup.setAttribute("id", "dbml-paths");
     svgEl.appendChild(pathsGroup);
 
-    const tablesGroup = document.createElementNS(ns, "g") as unknown as SVGGElement;
+    const tablesGroup = document.createElementNS(
+      ns,
+      "g",
+    ) as unknown as SVGGElement;
     tablesGroup.setAttribute("id", "dbml-tables");
     svgEl.appendChild(tablesGroup);
 
@@ -538,7 +570,10 @@ export default class DBMLVisualizerPlugin extends Plugin {
       g.appendChild(bg);
 
       const header = document.createElementNS(ns, "path");
-      header.setAttribute("d", `M0,6 Q0,0 6,0 L${t.width - 6},0 Q${t.width},0 ${t.width},6 L${t.width},40 L0,40 Z`);
+      header.setAttribute(
+        "d",
+        `M0,6 Q0,0 6,0 L${t.width - 6},0 Q${t.width},0 ${t.width},6 L${t.width},40 L0,40 Z`,
+      );
       header.setAttribute("fill", "var(--interactive-accent)");
       g.appendChild(header);
 
