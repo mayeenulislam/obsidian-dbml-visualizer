@@ -47,8 +47,8 @@ export default class DBMLVisualizerPlugin extends Plugin {
           bounds,
           title ?? undefined,
         );
-      } catch (e: any) {
-        el.createEl("pre", { text: "Error parsing DBML:\n" + e.message });
+      } catch (e: unknown) {
+        el.createEl("pre", { text: "Error parsing DBML:\n" + (e instanceof Error ? e.message : String(e)) });
       }
     };
 
