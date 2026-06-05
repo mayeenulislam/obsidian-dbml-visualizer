@@ -1,0 +1,108 @@
+.dbml-erd-container {
+  overflow: hidden;
+  max-height: 600px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 6px;
+  background-color: var(--background-primary);
+  position: relative;
+}
+
+.dbml-erd-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: var(--background-primary);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.dbml-erd-header-left {
+  flex: 1 1 0%;
+  display: flex;
+  align-items: center;
+}
+
+.dbml-erd-header-center {
+  flex: 0 1 auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.dbml-erd-header-right {
+  flex: 1 1 0%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.dbml-erd-zoom-hint {
+  display: flex;
+  align-items: center;
+  margin-right: 8px;
+}
+
+.dbml-erd-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-accent-on-background, var(--text-normal));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dbml-erd-hint-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dbml-erd-hint-pipe {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin: 0 8px;
+}
+
+.dbml-erd-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dbml-erd-btn {
+  background: transparent;
+  color: var(--text-normal);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.dbml-erd-zoom-label {
+  min-width: 40px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.dbml-erd-svg {
+  cursor: grab;
+  transform-origin: 0 0;
+}
+
+.dbml-erd-svg.is-panning {
+  cursor: grabbing;
+}
+
+g[data-table-name] {
+  cursor: grab;
+}
+
+g[data-table-name].is-dragging {
+  cursor: grabbing;
+}

@@ -422,102 +422,47 @@ export default class DBMLVisualizerPlugin extends Plugin {
     title?: string,
   ) {
     const container = el.createDiv({ cls: "dbml-erd-container" });
-    container.style.overflow = "hidden";
-    container.style.maxHeight = "600px";
-    container.style.border = "1px solid var(--background-modifier-border)";
-    container.style.borderRadius = "6px";
-    container.style.backgroundColor = "var(--background-primary)";
-    container.style.position = "relative";
 
-    const headerBar = container.createDiv();
-    headerBar.style.position = "sticky";
-    headerBar.style.top = "0";
-    headerBar.style.zIndex = "10";
-    headerBar.style.display = "flex";
-    headerBar.style.justifyContent = "space-between";
-    headerBar.style.alignItems = "center";
-    headerBar.style.padding = "8px";
-    headerBar.style.background = "var(--background-primary)";
-    headerBar.style.borderBottom =
-      "1px solid var(--background-modifier-border)";
+    const headerBar = container.createDiv({ cls: "dbml-erd-header" });
 
     // 1. Left Region (Title goes here if provided)
-    const leftRegion = headerBar.createDiv();
-    leftRegion.style.flex = "1 1 0%";
-    leftRegion.style.display = "flex";
-    leftRegion.style.alignItems = "center";
+    const leftRegion = headerBar.createDiv({ cls: "dbml-erd-header-left" });
 
     if (title) {
       leftRegion.createEl("span", {
         text: this.escapeXml(title),
-      }).style.cssText =
-        "font-size: 14px; font-weight: 700; color: var(--text-accent-on-background, var(--text-normal)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;";
+        cls: "dbml-erd-title",
+      });
     }
 
     // 2. Center Region (Empty, maintains layout structure)
-    const centerRegion = headerBar.createDiv();
-    centerRegion.style.flex = "0 1 auto";
-    centerRegion.style.display = "flex";
-    centerRegion.style.justifyContent = "center";
-    centerRegion.style.alignItems = "center";
+    const centerRegion = headerBar.createDiv({ cls: "dbml-erd-header-center" });
 
     // 3. Right Region (Controls)
-    const rightRegion = headerBar.createDiv();
-    rightRegion.style.flex = "1 1 0%";
-    rightRegion.style.display = "flex";
-    rightRegion.style.justifyContent = "flex-end";
-    rightRegion.style.alignItems = "center";
-    rightRegion.style.gap = "8px";
+    const rightRegion = headerBar.createDiv({ cls: "dbml-erd-header-right" });
 
-    const zoomHint = rightRegion.createDiv();
-    // Split the hint into left/right pieces with a grayed pipe for better readability
-    zoomHint.style.display = "flex";
-    zoomHint.style.alignItems = "center";
-    zoomHint.style.marginRight = "8px";
+    const zoomHint = rightRegion.createDiv({ cls: "dbml-erd-zoom-hint" });
 
     const leftHint = zoomHint.createEl("span", {
       text: "Drag empty space to pan",
+      cls: "dbml-erd-hint-text",
     });
-    leftHint.style.cssText =
-      "font-size:12px; color:var(--text-muted); white-space:nowrap;";
 
-    const pipe = zoomHint.createEl("span", { text: "|" });
-    pipe.style.cssText =
-      "font-size:12px; color:var(--text-faint); margin:0 8px;";
+    const pipe = zoomHint.createEl("span", { text: "|", cls: "dbml-erd-hint-pipe" });
 
     const rightHint = zoomHint.createEl("span", {
       text: "Ctrl/⌘+Scroll to zoom",
+      cls: "dbml-erd-hint-text",
     });
-    rightHint.style.cssText =
-      "font-size:12px; color:var(--text-muted); white-space:nowrap;";
 
-    const controlsGroup = rightRegion.createDiv();
-    controlsGroup.style.display = "flex";
-    controlsGroup.style.alignItems = "center";
-    controlsGroup.style.gap = "6px";
+    const controlsGroup = rightRegion.createDiv({ cls: "dbml-erd-controls" });
 
-    const btnStyle = (btn: HTMLButtonElement) => {
-      btn.style.background = "transparent";
-      btn.style.color = "var(--text-normal)";
-      btn.style.border = "1px solid transparent";
-      btn.style.borderRadius = "4px";
-      btn.style.padding = "4px 8px";
-      btn.style.cursor = "pointer";
-      btn.style.fontWeight = "600";
-    };
-
-    const zoomOutBtn = controlsGroup.createEl("button", { text: "−" });
-    btnStyle(zoomOutBtn);
-    const zoomLabel = controlsGroup.createEl("span", { text: "100%" });
-    zoomLabel.style.minWidth = "40px";
-    zoomLabel.style.textAlign = "center";
-    zoomLabel.style.fontSize = "12px";
-    zoomLabel.style.color = "var(--text-muted)";
-    const zoomInBtn = controlsGroup.createEl("button", { text: "+" });
-    btnStyle(zoomInBtn);
+    const zoomOutBtn = controlsGroup.createEl("button", { text: "−", cls: "dbml-erd-btn" });
+    const zoomLabel = controlsGroup.createEl("span", { text: "100%", cls: "dbml-erd-zoom-label" });
+    const zoomInBtn = controlsGroup.createEl("button", { text: "+", cls: "dbml-erd-btn" });
 
     // SVG Creation
-    let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="${bounds.width}" height="${bounds.height}" viewBox="0 0 ${bounds.width} ${bounds.height}" style="user-select: none;">`;
+    let svgContent = `<svg class="dbml-erd-svg" xmlns="http://www.w3.org/2000/svg" width="${bounds.width}" height="${bounds.height}" viewBox="0 0 ${bounds.width} ${bounds.height}" style="user-select: none;">`;
 
     svgContent += `
         <defs>
@@ -530,7 +475,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
     svgContent += `<g id="dbml-tables">`;
 
     tables.forEach((t) => {
-      svgContent += `<g data-table-name="${t.name}" transform="translate(${t.x}, ${t.y})" style="cursor: grab;">`;
+      svgContent += `<g data-table-name="${t.name}" transform="translate(${t.x}, ${t.y})" >`;
       svgContent += `<rect x="3" y="3" width="${t.width}" height="${t.height}" fill="rgba(0,0,0,0.15)" rx="6"/>`;
 
       const strokeDash = t.isGhost ? "stroke-dasharray='5,5'" : "";
@@ -602,7 +547,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
       svgEl.style.width = `${currentBounds.width * currentZoom}px`;
       svgEl.style.height = `${currentBounds.height * currentZoom}px`;
       svgEl.style.transform = `translate(${panX}px, ${panY}px)`;
-      svgEl.style.transformOrigin = "0 0";
+
       zoomLabel.textContent = `${Math.round(currentZoom * 100)}%`;
     };
 
@@ -650,7 +595,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
       panStartY = e.clientY;
       panStartPanX = panX;
       panStartPanY = panY;
-      svgEl.style.cursor = "grabbing";
+      svgEl.classList.add("is-panning");
     });
 
     window.addEventListener("mousemove", (e: MouseEvent) => {
@@ -668,7 +613,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
     window.addEventListener("mouseup", () => {
       if (isPanning) {
         isPanning = false;
-        svgEl.style.cursor = "grab";
+        svgEl.classList.remove("is-panning");
       }
     });
 
@@ -688,7 +633,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
         const startSvgX = (e.clientX - rect.left - panX) / currentZoom;
         const startSvgY = (e.clientY - rect.top - panY) / currentZoom;
 
-        (gEl as SVGElement).style.cursor = "grabbing";
+        (gEl as SVGElement).classList.add("is-dragging");
 
         // Bring to front
         (gEl.parentNode as SVGElement).appendChild(gEl);
@@ -717,7 +662,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
         };
 
         const onMouseUp = () => {
-          (gEl as SVGElement).style.cursor = "grab";
+          (gEl as SVGElement).classList.remove("is-dragging");
           window.removeEventListener("mousemove", onMouseMove);
           window.removeEventListener("mouseup", onMouseUp);
         };
