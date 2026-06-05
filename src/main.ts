@@ -32,6 +32,10 @@ export default class DBMLVisualizerPlugin extends Plugin {
       ctx: MarkdownPostProcessorContext,
     ) => {
       try {
+        // If the code block is empty (only whitespace/newlines), don't render a diagram
+        if (source.trim() === "") {
+          return;
+        }
         const { tables, relations } = this.parseDBML(source);
         const title = await this.extractCodeBlockTitle(source, el, ctx);
         const { tableMap, bounds } = this.layoutTables(tables, relations);
@@ -466,10 +470,26 @@ export default class DBMLVisualizerPlugin extends Plugin {
     rightRegion.style.gap = "8px";
 
     const zoomHint = rightRegion.createDiv();
-    zoomHint.createEl("span", {
-      text: "Drag empty space to pan | Ctrl/⌘+Scroll to zoom",
-    }).style.cssText =
-      "font-size:12px; color:var(--text-muted); white-space:nowrap; margin-right:8px;";
+    // Split the hint into left/right pieces with a grayed pipe for better readability
+    zoomHint.style.display = "flex";
+    zoomHint.style.alignItems = "center";
+    zoomHint.style.marginRight = "8px";
+
+    const leftHint = zoomHint.createEl("span", {
+      text: "Drag empty space to pan",
+    });
+    leftHint.style.cssText =
+      "font-size:12px; color:var(--text-muted); white-space:nowrap;";
+
+    const pipe = zoomHint.createEl("span", { text: "|" });
+    pipe.style.cssText =
+      "font-size:12px; color:var(--text-faint); margin:0 8px;";
+
+    const rightHint = zoomHint.createEl("span", {
+      text: "Ctrl/⌘+Scroll to zoom",
+    });
+    rightHint.style.cssText =
+      "font-size:12px; color:var(--text-muted); white-space:nowrap;";
 
     const controlsGroup = rightRegion.createDiv();
     controlsGroup.style.display = "flex";
@@ -547,23 +567,34 @@ export default class DBMLVisualizerPlugin extends Plugin {
     let currentBounds = { width: bounds.width, height: bounds.height };
 
     const updateSvgBounds = () => {
+      // Calculate bounding box including negative positions so left/top panning works
+      let minX = 0;
+      let minY = 0;
       let maxRight = bounds.width;
       let maxBottom = bounds.height;
 
       Object.keys(tableMap).forEach((key) => {
         const t = tableMap[key];
+        minX = Math.min(minX, t.x);
+        minY = Math.min(minY, t.y);
         maxRight = Math.max(maxRight, t.x + t.width);
         maxBottom = Math.max(maxBottom, t.y + t.height);
       });
 
-      currentBounds.width = maxRight + 80;
-      currentBounds.height = maxBottom + 80;
+      const padding = 80;
+      const viewX = minX - padding / 2;
+      const viewY = minY - padding / 2;
+      const viewWidth = maxRight - minX + padding;
+      const viewHeight = maxBottom - minY + padding;
+
+      currentBounds.width = viewWidth;
+      currentBounds.height = viewHeight;
 
       svgEl.setAttribute("width", `${currentBounds.width}`);
       svgEl.setAttribute("height", `${currentBounds.height}`);
       svgEl.setAttribute(
         "viewBox",
-        `0 0 ${currentBounds.width} ${currentBounds.height}`,
+        `${viewX} ${viewY} ${viewWidth} ${viewHeight}`,
       );
     };
 
