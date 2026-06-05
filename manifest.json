@@ -1,7 +1,7 @@
 {
     "id": "obsidian-dbml-visualizer",
     "name": "DBML Visualizer",
-    "version": "1.0.0",
+    "version": "1.0.0-beta.1",
     "minAppVersion": "1.12.0",
     "description": "Renders modified DBML code blocks into interactive Entity Relationship Diagrams (ERDs).",
     "author": "Mayeenul Islam",
