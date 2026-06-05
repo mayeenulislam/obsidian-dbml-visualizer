@@ -7,8 +7,19 @@
         "dev": "node esbuild.config.mjs",
         "build": "node esbuild.config.mjs production"
     },
-    "keywords": [],
-    "author": "",
+    "keywords": [
+        "obsidian",
+        "obsidian-plugin",
+        "dbml",
+        "database-markup-language",
+        "visualizer",
+        "database-design",
+        "erd",
+        "diagram",
+        "schema",
+        "modeling"
+    ],
+    "author": "Mayeenul Islam",
     "license": "MIT",
     "devDependencies": {
         "@types/node": "^16.11.6",

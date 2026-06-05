@@ -3,7 +3,8 @@
     "name": "DBML Visualizer",
     "version": "1.0.0",
     "minAppVersion": "1.12.0",
-    "description": "Renders modified DBML code blocks into interactive ERD diagrams.",
-    "author": "YourName",
+    "description": "Renders modified DBML code blocks into interactive Entity Relationship Diagrams (ERDs).",
+    "author": "Mayeenul Islam",
+    "authorUrl": "https://mayeenulislam.github.io/",
     "isDesktopOnly": false
 }
