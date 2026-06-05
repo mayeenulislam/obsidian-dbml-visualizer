@@ -30,13 +30,13 @@ jobs:
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v1
         with:
-          subject-path: "main.js,manifest.json"
+          subject-path: "main.js,manifest.json,styles.css"
 
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
-          files: main.js,manifest.json
+          files: main.js,manifest.json,styles.css
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
