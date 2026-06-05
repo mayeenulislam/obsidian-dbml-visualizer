@@ -42,7 +42,7 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
           title != null ? title : void 0
         );
       } catch (e) {
-        el.createEl("pre", { text: "Error parsing DBML:\n" + e.message });
+        el.createEl("pre", { text: "Error parsing DBML:\n" + (e instanceof Error ? e.message : String(e)) });
       }
     };
     this.registerMarkdownCodeBlockProcessor("dbml", processor);
@@ -179,7 +179,6 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
         toCol: match[5]
       });
       const createGhost = (tblName, colName) => {
-        const titleText = `${tblName} (ref)`;
         const tableWidth = Math.max(220, (colName.length + 7 + 7 + 2) * 8 + 24);
         tables.push({
           name: tblName,

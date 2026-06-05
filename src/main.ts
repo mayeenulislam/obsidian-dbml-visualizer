@@ -211,7 +211,6 @@ export default class DBMLVisualizerPlugin extends Plugin {
       });
 
       const createGhost = (tblName: string, colName: string) => {
-        const titleText = `${tblName} (ref)`;
         const tableWidth = Math.max(220, (colName.length + 7 + 7 + 2) * 8 + 24);
         tables.push({
           name: tblName,
