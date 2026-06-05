@@ -1,6 +1,6 @@
 # DBML Visualizer
 
-> Renders DBML code blocks into interactive ERD diagrams inside Obsidian.
+Renders DBML code blocks into interactive ERD diagrams inside Obsidian.
 
 ## Overview
 
@@ -92,10 +92,10 @@ Built output: `main.js` (bundle produced by esbuild).
 **Mayeenul Islam**<br/>
 <https://mayeenulislam.github.io/>
 
-> The plugin was vibe-coded using free AI models with the knowledge of building 'BŪNŌN'.
+The plugin was vibe-coded using free AI models with the knowledge of building 'BŪNŌN'.
 
-> [!INFO] Featured Project
-> BŪNŌN — DBML ER Diagram visualizer<br/>
+> Featured Project
+> **BŪNŌN** — DBML ER Diagram visualizer<br/>
 > <https://mayeenulislam.github.io/bunon/>
 
 ## License
