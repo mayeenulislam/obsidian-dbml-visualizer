@@ -515,6 +515,20 @@ export default class DBMLVisualizerPlugin extends Plugin {
     svgEl.setAttribute("viewBox", `0 0 ${bounds.width} ${bounds.height}`);
 
     const defs = document.createElementNS(ns, "defs");
+
+    const gridPattern = document.createElementNS(ns, "pattern");
+    gridPattern.setAttribute("id", "grid-dots");
+    gridPattern.setAttribute("width", "20");
+    gridPattern.setAttribute("height", "20");
+    gridPattern.setAttribute("patternUnits", "userSpaceOnUse");
+    const dot = document.createElementNS(ns, "circle");
+    dot.setAttribute("cx", "10");
+    dot.setAttribute("cy", "10");
+    dot.setAttribute("r", "1");
+    dot.setAttribute("fill", "var(--background-modifier-border)");
+    gridPattern.appendChild(dot);
+    defs.appendChild(gridPattern);
+
     const marker = document.createElementNS(ns, "marker");
     marker.setAttribute("id", "arrowhead");
     marker.setAttribute("markerWidth", "10");
@@ -528,6 +542,12 @@ export default class DBMLVisualizerPlugin extends Plugin {
     marker.appendChild(polygon);
     defs.appendChild(marker);
     svgEl.appendChild(defs);
+
+    const bgRect = document.createElementNS(ns, "rect");
+    bgRect.setAttribute("width", `${bounds.width}`);
+    bgRect.setAttribute("height", `${bounds.height}`);
+    bgRect.setAttribute("fill", "url(#grid-dots)");
+    svgEl.appendChild(bgRect);
 
     const pathsGroup = document.createElementNS(
       ns,
@@ -653,6 +673,8 @@ export default class DBMLVisualizerPlugin extends Plugin {
       currentBounds.width = viewWidth;
       currentBounds.height = viewHeight;
 
+      bgRect.setAttribute("width", `${currentBounds.width}`);
+      bgRect.setAttribute("height", `${currentBounds.height}`);
       svgEl.setAttribute("width", `${currentBounds.width}`);
       svgEl.setAttribute("height", `${currentBounds.height}`);
       svgEl.setAttribute(
