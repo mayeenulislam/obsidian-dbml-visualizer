@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
@@ -25,6 +26,11 @@ jobs:
 
       - name: Build (production)
         run: npm run build
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: "main.js,manifest.json"
 
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v1
