@@ -349,7 +349,7 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
   }
   renderERD(el, tables, relations, tableMap, bounds, title) {
     const container = el.createDiv({ cls: "dbml-erd-container" });
-    container.style.overflow = "auto";
+    container.style.overflow = "hidden";
     container.style.maxHeight = "600px";
     container.style.border = "1px solid var(--background-modifier-border)";
     container.style.borderRadius = "6px";
@@ -386,7 +386,9 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
     rightRegion.style.alignItems = "center";
     rightRegion.style.gap = "8px";
     const zoomHint = rightRegion.createDiv();
-    zoomHint.createEl("span", { text: "Ctrl/\u2318+Scroll to zoom" }).style.cssText = "font-size:12px; color:var(--text-muted); white-space:nowrap; margin-right:8px;";
+    zoomHint.createEl("span", {
+      text: "Drag empty space to pan | Ctrl/\u2318+Scroll to zoom"
+    }).style.cssText = "font-size:12px; color:var(--text-muted); white-space:nowrap; margin-right:8px;";
     const controlsGroup = rightRegion.createDiv();
     controlsGroup.style.display = "flex";
     controlsGroup.style.alignItems = "center";

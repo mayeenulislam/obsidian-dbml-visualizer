@@ -418,7 +418,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
     title?: string,
   ) {
     const container = el.createDiv({ cls: "dbml-erd-container" });
-    container.style.overflow = "auto";
+    container.style.overflow = "hidden";
     container.style.maxHeight = "600px";
     container.style.border = "1px solid var(--background-modifier-border)";
     container.style.borderRadius = "6px";
@@ -466,7 +466,9 @@ export default class DBMLVisualizerPlugin extends Plugin {
     rightRegion.style.gap = "8px";
 
     const zoomHint = rightRegion.createDiv();
-    zoomHint.createEl("span", { text: "Ctrl/⌘+Scroll to zoom" }).style.cssText =
+    zoomHint.createEl("span", {
+      text: "Drag empty space to pan | Ctrl/⌘+Scroll to zoom",
+    }).style.cssText =
       "font-size:12px; color:var(--text-muted); white-space:nowrap; margin-right:8px;";
 
     const controlsGroup = rightRegion.createDiv();
