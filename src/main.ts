@@ -1,4 +1,4 @@
-import { Plugin } from "obsidian";
+import { Plugin, TFile, MarkdownPostProcessorContext } from "obsidian";
 
 interface Column {
   name: string;
@@ -26,15 +26,115 @@ interface Relation {
 
 export default class DBMLVisualizerPlugin extends Plugin {
   async onload() {
-    this.registerMarkdownCodeBlockProcessor("dbml", (source, el, ctx) => {
+    const processor = async (
+      source: string,
+      el: HTMLElement,
+      ctx: MarkdownPostProcessorContext,
+    ) => {
       try {
         const { tables, relations } = this.parseDBML(source);
+        const title = await this.extractCodeBlockTitle(source, el, ctx);
         const { tableMap, bounds } = this.layoutTables(tables, relations);
-        this.renderERD(el, tables, relations, tableMap, bounds);
+        this.renderERD(
+          el,
+          tables,
+          relations,
+          tableMap,
+          bounds,
+          title ?? undefined,
+        );
       } catch (e: any) {
         el.createEl("pre", { text: "Error parsing DBML:\n" + e.message });
       }
-    });
+    };
+
+    // Register both lowercase and uppercase to guarantee matching regardless of internal normalization
+    this.registerMarkdownCodeBlockProcessor("dbml", processor);
+    this.registerMarkdownCodeBlockProcessor("DBML", processor);
+  }
+
+  async extractCodeBlockTitle(
+    source: string,
+    el: HTMLElement,
+    ctx: MarkdownPostProcessorContext,
+  ) {
+    const file = this.app.vault.getAbstractFileByPath(ctx.sourcePath);
+    if (!(file instanceof TFile)) {
+      return null;
+    }
+
+    const text = await this.app.vault.read(file);
+    const lines = text.split(/\r?\n/);
+
+    const parseFenceMeta = (infoString: string) => {
+      const trimmed = infoString.trim();
+      if (!trimmed.toLowerCase().startsWith("dbml")) {
+        return null;
+      }
+      const titleMatch =
+        trimmed.match(/title\s*=\s*"([^"]+)"/i) ??
+        trimmed.match(/title\s*=\s*'([^']+)'/i);
+      if (!titleMatch) {
+        return null;
+      }
+      const title = titleMatch[1].trim();
+      return title.length ? title : null;
+    };
+
+    const sectionInfo = ctx.getSectionInfo(el);
+    if (sectionInfo) {
+      let lineIndex = sectionInfo.lineStart;
+
+      // Check if the current line is the opening fence
+      if (lineIndex >= 0 && lines[lineIndex].trim().startsWith("```")) {
+        const infoString = lines[lineIndex].trim().slice(3).trim();
+        const title = parseFenceMeta(infoString);
+        if (title) return title;
+      }
+
+      // If not, check the line right before the start (which should be the opening fence)
+      if (lineIndex - 1 >= 0 && lines[lineIndex - 1].trim().startsWith("```")) {
+        const infoString = lines[lineIndex - 1].trim().slice(3).trim();
+        const title = parseFenceMeta(infoString);
+        if (title) return title;
+      }
+    }
+
+    // Fallback: Find the first line of source in the text, and look backwards for the fence
+    const firstLine = source.split(/\r?\n/).find((l) => l.trim() !== "");
+    if (firstLine) {
+      let startPos = 0;
+      while (startPos < text.length) {
+        const idx = text.indexOf(firstLine, startPos);
+        if (idx === -1) break;
+
+        const textBefore = text.substring(0, idx);
+        const lastFenceIdx = textBefore.lastIndexOf("```");
+
+        if (lastFenceIdx !== -1) {
+          const textToEndOfFence = textBefore.substring(lastFenceIdx);
+          const fenceLine = textToEndOfFence.split(/\r?\n/)[0];
+          if (fenceLine.trim().toLowerCase().startsWith("```dbml")) {
+            const infoString = fenceLine.trim().slice(3).trim();
+            const title = parseFenceMeta(infoString);
+            if (title) return title;
+          }
+        }
+
+        startPos = idx + 1;
+      }
+    } else {
+      // Handle empty code block
+      const emptyBlockRegex = /```dbml([^\n]*)\s*```/gi;
+      let match;
+      while ((match = emptyBlockRegex.exec(text)) !== null) {
+        const infoString = match[1].trim();
+        const title = parseFenceMeta(infoString);
+        if (title) return title;
+      }
+    }
+
+    return null;
   }
 
   parseDBML(source: string) {
@@ -315,6 +415,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
     relations: Relation[],
     tableMap: Record<string, Table>,
     bounds: { width: number; height: number },
+    title?: string,
   ) {
     const container = el.createDiv({ cls: "dbml-erd-container" });
     container.style.overflow = "auto";
@@ -324,40 +425,73 @@ export default class DBMLVisualizerPlugin extends Plugin {
     container.style.backgroundColor = "var(--background-primary)";
     container.style.position = "relative";
 
-    // Zoom Controls UI
-    const zoomControls = container.createDiv();
-    zoomControls.style.position = "sticky";
-    zoomControls.style.top = "0";
-    zoomControls.style.float = "right";
-    zoomControls.style.padding = "8px";
-    zoomControls.style.zIndex = "10";
-    zoomControls.style.display = "flex";
-    zoomControls.style.gap = "8px";
-    zoomControls.style.alignItems = "center";
-    zoomControls.style.background = "var(--background-secondary)";
-    zoomControls.style.borderBottomLeftRadius = "6px";
-    zoomControls.style.border = "1px solid var(--background-modifier-border)";
-    zoomControls.style.borderTop = "none";
-    zoomControls.style.borderRight = "none";
+    const headerBar = container.createDiv();
+    headerBar.style.position = "sticky";
+    headerBar.style.top = "0";
+    headerBar.style.zIndex = "10";
+    headerBar.style.display = "flex";
+    headerBar.style.justifyContent = "space-between";
+    headerBar.style.alignItems = "center";
+    headerBar.style.padding = "8px";
+    headerBar.style.background = "var(--background-primary)";
+    headerBar.style.borderBottom =
+      "1px solid var(--background-modifier-border)";
+
+    // 1. Left Region (Title goes here if provided)
+    const leftRegion = headerBar.createDiv();
+    leftRegion.style.flex = "1 1 0%";
+    leftRegion.style.display = "flex";
+    leftRegion.style.alignItems = "center";
+
+    if (title) {
+      leftRegion.createEl("span", {
+        text: this.escapeXml(title),
+      }).style.cssText =
+        "font-size: 14px; font-weight: 700; color: var(--text-accent-on-background, var(--text-normal)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;";
+    }
+
+    // 2. Center Region (Empty, maintains layout structure)
+    const centerRegion = headerBar.createDiv();
+    centerRegion.style.flex = "0 1 auto";
+    centerRegion.style.display = "flex";
+    centerRegion.style.justifyContent = "center";
+    centerRegion.style.alignItems = "center";
+
+    // 3. Right Region (Controls)
+    const rightRegion = headerBar.createDiv();
+    rightRegion.style.flex = "1 1 0%";
+    rightRegion.style.display = "flex";
+    rightRegion.style.justifyContent = "flex-end";
+    rightRegion.style.alignItems = "center";
+    rightRegion.style.gap = "8px";
+
+    const zoomHint = rightRegion.createDiv();
+    zoomHint.createEl("span", { text: "Ctrl/⌘+Scroll to zoom" }).style.cssText =
+      "font-size:12px; color:var(--text-muted); white-space:nowrap; margin-right:8px;";
+
+    const controlsGroup = rightRegion.createDiv();
+    controlsGroup.style.display = "flex";
+    controlsGroup.style.alignItems = "center";
+    controlsGroup.style.gap = "6px";
 
     const btnStyle = (btn: HTMLButtonElement) => {
-      btn.style.background = "var(--background-modifier-border)";
+      btn.style.background = "transparent";
       btn.style.color = "var(--text-normal)";
-      btn.style.border = "none";
+      btn.style.border = "1px solid transparent";
       btn.style.borderRadius = "4px";
-      btn.style.padding = "4px 10px";
+      btn.style.padding = "4px 8px";
       btn.style.cursor = "pointer";
-      btn.style.fontWeight = "bold";
+      btn.style.fontWeight = "600";
     };
 
-    const zoomOutBtn = zoomControls.createEl("button", { text: "−" });
+    const zoomOutBtn = controlsGroup.createEl("button", { text: "−" });
     btnStyle(zoomOutBtn);
-    const zoomLabel = zoomControls.createEl("span", { text: "100%" });
+    const zoomLabel = controlsGroup.createEl("span", { text: "100%" });
     zoomLabel.style.minWidth = "40px";
     zoomLabel.style.textAlign = "center";
     zoomLabel.style.fontSize = "12px";
     zoomLabel.style.color = "var(--text-muted)";
-    const zoomInBtn = zoomControls.createEl("button", { text: "+" });
+    const zoomInBtn = controlsGroup.createEl("button", { text: "+" });
     btnStyle(zoomInBtn);
 
     // SVG Creation
@@ -378,7 +512,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
       svgContent += `<rect x="3" y="3" width="${t.width}" height="${t.height}" fill="rgba(0,0,0,0.15)" rx="6"/>`;
 
       const strokeDash = t.isGhost ? "stroke-dasharray='5,5'" : "";
-      svgContent += `<rect width="${t.width}" height="${t.height}" fill="var(--background-secondary)" fill-opacity="0.95" stroke="var(--background-modifier-border)" rx="6" ${strokeDash}/>`;
+      svgContent += `<rect width="${t.width}" height="${t.height}" fill="var(--background-secondary)" fill-opacity="0.70" stroke="var(--background-modifier-border)" rx="6" ${strokeDash}/>`;
 
       svgContent += `<path d="M0,6 Q0,0 6,0 L${t.width - 6},0 Q${t.width},0 ${t.width},6 L${t.width},40 L0,40 Z" fill="var(--interactive-accent)" />`;
 
