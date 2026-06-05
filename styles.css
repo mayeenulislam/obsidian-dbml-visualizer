@@ -93,6 +93,7 @@
 .dbml-erd-svg {
   cursor: grab;
   transform-origin: 0 0;
+  user-select: none;
 }
 
 .dbml-erd-svg.is-panning {

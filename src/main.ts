@@ -367,8 +367,8 @@ export default class DBMLVisualizerPlugin extends Plugin {
     });
   }
 
-  generateRelationsSVG(relations: Relation[], tableMap: Record<string, Table>) {
-    let svg = "";
+  appendRelationElements(parent: Element, relations: Relation[], tableMap: Record<string, Table>) {
+    const ns = "http://www.w3.org/2000/svg";
     relations.forEach((r) => {
       const fromT = tableMap[r.fromTable];
       const toT = tableMap[r.toTable];
@@ -401,16 +401,36 @@ export default class DBMLVisualizerPlugin extends Plugin {
         c2x = toX + offset;
       }
 
-      svg += `<path d="M ${fromX} ${fromY} C ${c1x} ${fromY}, ${c2x} ${toY}, ${toX} ${toY}" 
-                    fill="none" stroke="var(--text-faint)" stroke-width="1.5" marker-end="url(#arrowhead)" />`;
+      const path = document.createElementNS(ns, "path");
+      path.setAttribute("d", `M ${fromX} ${fromY} C ${c1x} ${fromY}, ${c2x} ${toY}, ${toX} ${toY}`);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "var(--text-faint)");
+      path.setAttribute("stroke-width", "1.5");
+      path.setAttribute("marker-end", "url(#arrowhead)");
+      parent.appendChild(path);
 
       const midX = (fromX + toX) / 2;
       const midY = (fromY + toY) / 2;
 
-      svg += `<rect x="${midX - 12}" y="${midY - 10}" width="24" height="14" rx="3" fill="var(--background-primary)" />`;
-      svg += `<text x="${midX}" y="${midY}" fill="var(--text-faint)" font-size="11" text-anchor="middle" font-family="monospace">${this.escapeXml(r.type)}</text>`;
+      const labelBg = document.createElementNS(ns, "rect");
+      labelBg.setAttribute("x", `${midX - 12}`);
+      labelBg.setAttribute("y", `${midY - 10}`);
+      labelBg.setAttribute("width", "24");
+      labelBg.setAttribute("height", "14");
+      labelBg.setAttribute("rx", "3");
+      labelBg.setAttribute("fill", "var(--background-primary)");
+      parent.appendChild(labelBg);
+
+      const label = document.createElementNS(ns, "text");
+      label.setAttribute("x", `${midX}`);
+      label.setAttribute("y", `${midY}`);
+      label.setAttribute("fill", "var(--text-faint)");
+      label.setAttribute("font-size", "11");
+      label.setAttribute("text-anchor", "middle");
+      label.setAttribute("font-family", "monospace");
+      label.textContent = this.escapeXml(r.type);
+      parent.appendChild(label);
     });
-    return svg;
   }
 
   renderERD(
@@ -462,48 +482,112 @@ export default class DBMLVisualizerPlugin extends Plugin {
     const zoomInBtn = controlsGroup.createEl("button", { text: "+", cls: "dbml-erd-btn" });
 
     // SVG Creation
-    let svgContent = `<svg class="dbml-erd-svg" xmlns="http://www.w3.org/2000/svg" width="${bounds.width}" height="${bounds.height}" viewBox="0 0 ${bounds.width} ${bounds.height}" style="user-select: none;">`;
+    const ns = "http://www.w3.org/2000/svg";
+    const svgEl = document.createElementNS(ns, "svg") as unknown as SVGSVGElement;
+    svgEl.classList.add("dbml-erd-svg");
+    svgEl.setAttribute("width", `${bounds.width}`);
+    svgEl.setAttribute("height", `${bounds.height}`);
+    svgEl.setAttribute("viewBox", `0 0 ${bounds.width} ${bounds.height}`);
 
-    svgContent += `
-        <defs>
-            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" fill="var(--text-faint)" />
-            </marker>
-        </defs>`;
+    const defs = document.createElementNS(ns, "defs");
+    const marker = document.createElementNS(ns, "marker");
+    marker.setAttribute("id", "arrowhead");
+    marker.setAttribute("markerWidth", "10");
+    marker.setAttribute("markerHeight", "7");
+    marker.setAttribute("refX", "10");
+    marker.setAttribute("refY", "3.5");
+    marker.setAttribute("orient", "auto");
+    const polygon = document.createElementNS(ns, "polygon");
+    polygon.setAttribute("points", "0 0, 10 3.5, 0 7");
+    polygon.setAttribute("fill", "var(--text-faint)");
+    marker.appendChild(polygon);
+    defs.appendChild(marker);
+    svgEl.appendChild(defs);
 
-    svgContent += `<g id="dbml-paths">${this.generateRelationsSVG(relations, tableMap)}</g>`;
-    svgContent += `<g id="dbml-tables">`;
+    const pathsGroup = document.createElementNS(ns, "g") as unknown as SVGGElement;
+    pathsGroup.setAttribute("id", "dbml-paths");
+    svgEl.appendChild(pathsGroup);
+
+    const tablesGroup = document.createElementNS(ns, "g") as unknown as SVGGElement;
+    tablesGroup.setAttribute("id", "dbml-tables");
+    svgEl.appendChild(tablesGroup);
 
     tables.forEach((t) => {
-      svgContent += `<g data-table-name="${t.name}" transform="translate(${t.x}, ${t.y})" >`;
-      svgContent += `<rect x="3" y="3" width="${t.width}" height="${t.height}" fill="rgba(0,0,0,0.15)" rx="6"/>`;
+      const g = document.createElementNS(ns, "g");
+      g.setAttribute("data-table-name", t.name);
+      g.setAttribute("transform", `translate(${t.x}, ${t.y})`);
 
-      const strokeDash = t.isGhost ? "stroke-dasharray='5,5'" : "";
-      svgContent += `<rect width="${t.width}" height="${t.height}" fill="var(--background-secondary)" fill-opacity="0.70" stroke="var(--background-modifier-border)" rx="6" ${strokeDash}/>`;
+      const shadow = document.createElementNS(ns, "rect");
+      shadow.setAttribute("x", "3");
+      shadow.setAttribute("y", "3");
+      shadow.setAttribute("width", `${t.width}`);
+      shadow.setAttribute("height", `${t.height}`);
+      shadow.setAttribute("fill", "rgba(0,0,0,0.15)");
+      shadow.setAttribute("rx", "6");
+      g.appendChild(shadow);
 
-      svgContent += `<path d="M0,6 Q0,0 6,0 L${t.width - 6},0 Q${t.width},0 ${t.width},6 L${t.width},40 L0,40 Z" fill="var(--interactive-accent)" />`;
+      const bg = document.createElementNS(ns, "rect");
+      bg.setAttribute("width", `${t.width}`);
+      bg.setAttribute("height", `${t.height}`);
+      bg.setAttribute("fill", "var(--background-secondary)");
+      bg.setAttribute("fill-opacity", "0.70");
+      bg.setAttribute("stroke", "var(--background-modifier-border)");
+      bg.setAttribute("rx", "6");
+      if (t.isGhost) {
+        bg.setAttribute("stroke-dasharray", "5,5");
+      }
+      g.appendChild(bg);
+
+      const header = document.createElementNS(ns, "path");
+      header.setAttribute("d", `M0,6 Q0,0 6,0 L${t.width - 6},0 Q${t.width},0 ${t.width},6 L${t.width},40 L0,40 Z`);
+      header.setAttribute("fill", "var(--interactive-accent)");
+      g.appendChild(header);
 
       const titleText = t.isGhost ? `${t.name} (ref)` : t.name;
-      svgContent += `<text x="12" y="26" fill="var(--text-on-accent)" font-weight="bold" font-size="14" font-family="var(--font-monospace)">${this.escapeXml(titleText)}</text>`;
+      const title = document.createElementNS(ns, "text");
+      title.setAttribute("x", "12");
+      title.setAttribute("y", "26");
+      title.setAttribute("fill", "var(--text-on-accent)");
+      title.setAttribute("font-weight", "bold");
+      title.setAttribute("font-size", "14");
+      title.setAttribute("font-family", "var(--font-monospace)");
+      title.textContent = this.escapeXml(titleText);
+      g.appendChild(title);
 
       t.columns.forEach((c, i) => {
         const cy = 40 + i * 28 + 19;
         const displayName = c.pk ? `PK ${c.name}` : c.name;
-        const weight = c.pk ? 'font-weight="bold"' : "";
 
-        svgContent += `<text x="12" y="${cy}" fill="var(--text-normal)" font-size="13" ${weight} font-family="var(--font-monospace)">${this.escapeXml(displayName)}</text>`;
-        svgContent += `<text x="${t.width - 12}" y="${cy}" fill="var(--text-faint)" font-size="12" text-anchor="end" font-family="var(--font-monospace)">${this.escapeXml(c.type)}</text>`;
+        const colName = document.createElementNS(ns, "text");
+        colName.setAttribute("x", "12");
+        colName.setAttribute("y", `${cy}`);
+        colName.setAttribute("fill", "var(--text-normal)");
+        colName.setAttribute("font-size", "13");
+        colName.setAttribute("font-family", "var(--font-monospace)");
+        if (c.pk) {
+          colName.setAttribute("font-weight", "bold");
+        }
+        colName.textContent = this.escapeXml(displayName);
+        g.appendChild(colName);
+
+        const colType = document.createElementNS(ns, "text");
+        colType.setAttribute("x", `${t.width - 12}`);
+        colType.setAttribute("y", `${cy}`);
+        colType.setAttribute("fill", "var(--text-faint)");
+        colType.setAttribute("font-size", "12");
+        colType.setAttribute("text-anchor", "end");
+        colType.setAttribute("font-family", "var(--font-monospace)");
+        colType.textContent = this.escapeXml(c.type);
+        g.appendChild(colType);
       });
 
-      svgContent += `</g>`;
+      tablesGroup.appendChild(g);
     });
 
-    svgContent += `</g></svg>`;
-    container.insertAdjacentHTML("beforeend", svgContent);
+    this.appendRelationElements(pathsGroup, relations, tableMap);
 
-    // Interactive JS Logic
-    const svgEl = container.querySelector("svg") as SVGElement;
-    const pathsGroup = container.querySelector("#dbml-paths") as SVGElement;
+    container.appendChild(svgEl);
+
     const tableElements = container.querySelectorAll("g[data-table-name]");
 
     let currentZoom = 1;
@@ -658,7 +742,8 @@ export default class DBMLVisualizerPlugin extends Plugin {
           applyZoom();
 
           // Redraw paths
-          pathsGroup.innerHTML = this.generateRelationsSVG(relations, tableMap);
+          while (pathsGroup.firstChild) pathsGroup.firstChild.remove();
+          this.appendRelationElements(pathsGroup, relations, tableMap);
         };
 
         const onMouseUp = () => {
