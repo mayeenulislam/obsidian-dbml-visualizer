@@ -321,8 +321,7 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
   appendRelationElements(parent, relations, tableMap) {
     var _a;
     const ns = "http://www.w3.org/2000/svg";
-    const doc =
-      (_a = this.app.workspace.activeDocument) != null ? _a : document;
+    const doc = (_a = parent.ownerDocument) != null ? _a : document;
     relations.forEach((r) => {
       const fromT = tableMap[r.fromTable];
       const toT = tableMap[r.toTable];
@@ -395,15 +394,15 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
     headerBar.createDiv({ cls: "dbml-erd-header-center" });
     const rightRegion = headerBar.createDiv({ cls: "dbml-erd-header-right" });
     const zoomHint = rightRegion.createDiv({ cls: "dbml-erd-zoom-hint" });
-    const leftHint = zoomHint.createEl("span", {
+    zoomHint.createEl("span", {
       text: "Drag empty space to pan",
       cls: "dbml-erd-hint-text",
     });
-    const pipe = zoomHint.createEl("span", {
+    zoomHint.createEl("span", {
       text: "|",
       cls: "dbml-erd-hint-pipe",
     });
-    const rightHint = zoomHint.createEl("span", {
+    zoomHint.createEl("span", {
       text: "Ctrl/\u2318+Scroll to zoom",
       cls: "dbml-erd-hint-text",
     });
@@ -421,8 +420,7 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
       cls: "dbml-erd-btn",
     });
     const ns = "http://www.w3.org/2000/svg";
-    const doc =
-      (_a = this.app.workspace.activeDocument) != null ? _a : document;
+    const doc = (_a = el.ownerDocument) != null ? _a : document;
     const svgEl = doc.createElementNS(ns, "svg");
     svgEl.classList.add("dbml-erd-svg");
     svgEl.setAttribute("width", `${bounds.width}`);
