@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
@@ -26,11 +28,21 @@ jobs:
       - name: Build (production)
         run: npm run build
 
+      - name: Generate release notes
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 @^ 2>/dev/null || true)
+          if [ -n "$PREV_TAG" ]; then
+            git log "$PREV_TAG"..HEAD --format="- %s" --reverse > _release_body.md
+          else
+            git log HEAD --format="- %s" --reverse > _release_body.md
+          fi
+
       - name: Create GitHub Release and upload assets
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
+          body_path: _release_body.md
           files: main.js,manifest.json,styles.css
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
