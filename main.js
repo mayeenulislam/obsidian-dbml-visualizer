@@ -392,7 +392,7 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
         cls: "dbml-erd-title",
       });
     }
-    const centerRegion = headerBar.createDiv({ cls: "dbml-erd-header-center" });
+    headerBar.createDiv({ cls: "dbml-erd-header-center" });
     const rightRegion = headerBar.createDiv({ cls: "dbml-erd-header-right" });
     const zoomHint = rightRegion.createDiv({ cls: "dbml-erd-zoom-hint" });
     const leftHint = zoomHint.createEl("span", {

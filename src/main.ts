@@ -467,7 +467,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
     }
 
     // 2. Center Region (Empty, maintains layout structure)
-    const centerRegion = headerBar.createDiv({ cls: "dbml-erd-header-center" });
+    headerBar.createDiv({ cls: "dbml-erd-header-center" });
 
     // 3. Right Region (Controls)
     const rightRegion = headerBar.createDiv({ cls: "dbml-erd-header-right" });
