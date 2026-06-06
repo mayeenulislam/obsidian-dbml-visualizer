@@ -376,6 +376,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
     tableMap: Record<string, Table>,
   ) {
     const ns = "http://www.w3.org/2000/svg";
+    const doc = this.app.workspace.activeDocument ?? document;
     relations.forEach((r) => {
       const fromT = tableMap[r.fromTable];
       const toT = tableMap[r.toTable];
@@ -408,7 +409,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
         c2x = toX + offset;
       }
 
-      const path = document.createElementNS(ns, "path");
+      const path = doc.createElementNS(ns, "path");
       path.setAttribute(
         "d",
         `M ${fromX} ${fromY} C ${c1x} ${fromY}, ${c2x} ${toY}, ${toX} ${toY}`,
@@ -422,7 +423,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
       const midX = (fromX + toX) / 2;
       const midY = (fromY + toY) / 2;
 
-      const labelBg = document.createElementNS(ns, "rect");
+      const labelBg = doc.createElementNS(ns, "rect");
       labelBg.setAttribute("x", `${midX - 12}`);
       labelBg.setAttribute("y", `${midY - 10}`);
       labelBg.setAttribute("width", "24");
@@ -431,7 +432,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
       labelBg.setAttribute("fill", "var(--background-primary)");
       parent.appendChild(labelBg);
 
-      const label = document.createElementNS(ns, "text");
+      const label = doc.createElementNS(ns, "text");
       label.setAttribute("x", `${midX}`);
       label.setAttribute("y", `${midY}`);
       label.setAttribute("fill", "var(--text-faint)");
@@ -505,23 +506,21 @@ export default class DBMLVisualizerPlugin extends Plugin {
 
     // SVG Creation
     const ns = "http://www.w3.org/2000/svg";
-    const svgEl = document.createElementNS(
-      ns,
-      "svg",
-    ) as unknown as SVGSVGElement;
+    const doc = this.app.workspace.activeDocument ?? document;
+    const svgEl = doc.createElementNS(ns, "svg") as unknown as SVGSVGElement;
     svgEl.classList.add("dbml-erd-svg");
     svgEl.setAttribute("width", `${bounds.width}`);
     svgEl.setAttribute("height", `${bounds.height}`);
     svgEl.setAttribute("viewBox", `0 0 ${bounds.width} ${bounds.height}`);
 
-    const defs = document.createElementNS(ns, "defs");
+    const defs = doc.createElementNS(ns, "defs");
 
-    const gridPattern = document.createElementNS(ns, "pattern");
+    const gridPattern = doc.createElementNS(ns, "pattern");
     gridPattern.setAttribute("id", "grid-dots");
     gridPattern.setAttribute("width", "20");
     gridPattern.setAttribute("height", "20");
     gridPattern.setAttribute("patternUnits", "userSpaceOnUse");
-    const dot = document.createElementNS(ns, "circle");
+    const dot = doc.createElementNS(ns, "circle");
     dot.setAttribute("cx", "10");
     dot.setAttribute("cy", "10");
     dot.setAttribute("r", "1");
@@ -529,46 +528,40 @@ export default class DBMLVisualizerPlugin extends Plugin {
     gridPattern.appendChild(dot);
     defs.appendChild(gridPattern);
 
-    const marker = document.createElementNS(ns, "marker");
+    const marker = doc.createElementNS(ns, "marker");
     marker.setAttribute("id", "arrowhead");
     marker.setAttribute("markerWidth", "10");
     marker.setAttribute("markerHeight", "7");
     marker.setAttribute("refX", "10");
     marker.setAttribute("refY", "3.5");
     marker.setAttribute("orient", "auto");
-    const polygon = document.createElementNS(ns, "polygon");
+    const polygon = doc.createElementNS(ns, "polygon");
     polygon.setAttribute("points", "0 0, 10 3.5, 0 7");
     polygon.setAttribute("fill", "var(--text-faint)");
     marker.appendChild(polygon);
     defs.appendChild(marker);
     svgEl.appendChild(defs);
 
-    const bgRect = document.createElementNS(ns, "rect");
+    const bgRect = doc.createElementNS(ns, "rect");
     bgRect.setAttribute("width", `${bounds.width}`);
     bgRect.setAttribute("height", `${bounds.height}`);
     bgRect.setAttribute("fill", "url(#grid-dots)");
     svgEl.appendChild(bgRect);
 
-    const pathsGroup = document.createElementNS(
-      ns,
-      "g",
-    ) as unknown as SVGGElement;
+    const pathsGroup = doc.createElementNS(ns, "g") as unknown as SVGGElement;
     pathsGroup.setAttribute("id", "dbml-paths");
     svgEl.appendChild(pathsGroup);
 
-    const tablesGroup = document.createElementNS(
-      ns,
-      "g",
-    ) as unknown as SVGGElement;
+    const tablesGroup = doc.createElementNS(ns, "g") as unknown as SVGGElement;
     tablesGroup.setAttribute("id", "dbml-tables");
     svgEl.appendChild(tablesGroup);
 
     tables.forEach((t) => {
-      const g = document.createElementNS(ns, "g");
+      const g = doc.createElementNS(ns, "g");
       g.setAttribute("data-table-name", t.name);
       g.setAttribute("transform", `translate(${t.x}, ${t.y})`);
 
-      const shadow = document.createElementNS(ns, "rect");
+      const shadow = doc.createElementNS(ns, "rect");
       shadow.setAttribute("x", "3");
       shadow.setAttribute("y", "3");
       shadow.setAttribute("width", `${t.width}`);
@@ -577,7 +570,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
       shadow.setAttribute("rx", "6");
       g.appendChild(shadow);
 
-      const bg = document.createElementNS(ns, "rect");
+      const bg = doc.createElementNS(ns, "rect");
       bg.setAttribute("width", `${t.width}`);
       bg.setAttribute("height", `${t.height}`);
       bg.setAttribute("fill", "var(--background-secondary)");
@@ -589,7 +582,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
       }
       g.appendChild(bg);
 
-      const header = document.createElementNS(ns, "path");
+      const header = doc.createElementNS(ns, "path");
       header.setAttribute(
         "d",
         `M0,6 Q0,0 6,0 L${t.width - 6},0 Q${t.width},0 ${t.width},6 L${t.width},40 L0,40 Z`,
@@ -598,7 +591,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
       g.appendChild(header);
 
       const titleText = t.isGhost ? `${t.name} (ref)` : t.name;
-      const title = document.createElementNS(ns, "text");
+      const title = doc.createElementNS(ns, "text");
       title.setAttribute("x", "12");
       title.setAttribute("y", "26");
       title.setAttribute("fill", "var(--text-on-accent)");
@@ -612,7 +605,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
         const cy = 40 + i * 28 + 19;
         const displayName = c.pk ? `PK ${c.name}` : c.name;
 
-        const colName = document.createElementNS(ns, "text");
+        const colName = doc.createElementNS(ns, "text");
         colName.setAttribute("x", "12");
         colName.setAttribute("y", `${cy}`);
         colName.setAttribute("fill", "var(--text-normal)");
@@ -624,7 +617,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
         colName.textContent = this.escapeXml(displayName);
         g.appendChild(colName);
 
-        const colType = document.createElementNS(ns, "text");
+        const colType = doc.createElementNS(ns, "text");
         colType.setAttribute("x", `${t.width - 12}`);
         colType.setAttribute("y", `${cy}`);
         colType.setAttribute("fill", "var(--text-faint)");
