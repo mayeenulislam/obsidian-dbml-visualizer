@@ -6,6 +6,8 @@ Renders DBML code blocks into interactive ERD diagrams inside Obsidian.
 
 DBML Visualizer converts `dbml` fenced code blocks into an interactive, pannable and zoomable ERD (Entity Relationship Diagram). Tables rendered from DBML can be dragged for custom layout; relations are drawn between columns.
 
+![Obsidian DBML Visualizer by Mayeenul Islam](cover.png)
+
 Key features:
 
 - Render `dbml`/`DBML` code blocks to SVG ERDs
@@ -28,7 +30,7 @@ Two ways to install:
 
 Add a fenced code block with language `dbml` in a note. Example:
 
-```dbml
+<pre><code>&#x60;&#x60;&#x60;dbml
 Table users {
   id int [pk]
   name varchar
@@ -41,12 +43,12 @@ Table orders {
   total decimal
 }
 
-users.id <> orders.user_id
-```
+users.id &lt;&gt; orders.user_id
+&#x60;&#x60;&#x60;</code></pre>
 
 or,
 
-```dbml
+<pre><code>&#x60;&#x60;&#x60;dbml
 users {
   id int [pk]
   name varchar
@@ -59,12 +61,18 @@ orders {
   total decimal
 }
 
-users.id <> orders.user_id
-```
+users.id &lt;&gt; orders.user_id
+&#x60;&#x60;&#x60;</code></pre>
 
 You can pass `title` in the fence info string:
 
-`dbml title="Customers ERD"`
+<pre><code>&#x60;&#x60;&#x60;dbml title="Customers ERD"
+users {
+  id int [pk]
+  name varchar
+  email varchar
+}
+&#x60;&#x60;&#x60;</code></pre>
 
 Notes:
 
@@ -92,9 +100,8 @@ Built output: `main.js` (bundle produced by esbuild).
 **Mayeenul Islam**<br/>
 <https://mayeenulislam.github.io/>
 
-The plugin was vibe-coded using free AI models with the knowledge of building 'BŪNŌN'.
+The plugin was vibe-coded using free AI models with the knowledge of building **BŪNŌN**.
 
-> Featured Project
 > **BŪNŌN** — DBML ER Diagram visualizer<br/>
 > <https://mayeenulislam.github.io/bunon/>
 
