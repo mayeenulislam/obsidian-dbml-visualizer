@@ -1,4 +1,4 @@
-import { Plugin, TFile, MarkdownPostProcessorContext } from "obsidian";
+import { Plugin, TFile, MarkdownPostProcessorContext, setIcon } from "obsidian";
 
 interface Column {
   name: string;
@@ -504,6 +504,18 @@ export default class DBMLVisualizerPlugin extends Plugin {
       cls: "dbml-erd-btn",
     });
 
+    const fullscreenBtn = controlsGroup.createEl("button", {
+      cls: "dbml-erd-btn dbml-erd-fullscreen-btn",
+    });
+    const setFullscreenIcon = (isFullscreen: boolean) => {
+      fullscreenBtn.empty();
+      setIcon(fullscreenBtn, isFullscreen ? "minimize" : "maximize");
+      const label = isFullscreen ? "Exit fullscreen" : "Fullscreen";
+      fullscreenBtn.setAttr("aria-label", label);
+      fullscreenBtn.setAttr("title", label);
+    };
+    setFullscreenIcon(false);
+
     // SVG Creation
     const ns = "http://www.w3.org/2000/svg";
     const doc = el.ownerDocument ?? document;
@@ -709,6 +721,30 @@ export default class DBMLVisualizerPlugin extends Plugin {
       currentZoom = Math.max(0.2, currentZoom - 0.1);
       applyZoom();
     });
+
+    // Fullscreen toggle
+    const isFullscreen = () => doc.fullscreenElement === container;
+    fullscreenBtn.addEventListener("click", async () => {
+      try {
+        if (isFullscreen()) {
+          await doc.exitFullscreen();
+        } else {
+          await container.requestFullscreen();
+        }
+      } catch (err) {
+        console.error("DBML Visualizer: fullscreen toggle failed", err);
+      }
+    });
+    const onFullscreenChange = () => {
+      if (!container.isConnected) {
+        doc.removeEventListener("fullscreenchange", onFullscreenChange);
+        return;
+      }
+      const fs = isFullscreen();
+      container.classList.toggle("is-fullscreen", fs);
+      setFullscreenIcon(fs);
+    };
+    doc.addEventListener("fullscreenchange", onFullscreenChange);
 
     // Pan/Drag Canvas Logic
     let isPanning = false;

@@ -419,6 +419,17 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
       text: "+",
       cls: "dbml-erd-btn",
     });
+    const fullscreenBtn = controlsGroup.createEl("button", {
+      cls: "dbml-erd-btn dbml-erd-fullscreen-btn",
+    });
+    const setFullscreenIcon = (isFullscreen2) => {
+      fullscreenBtn.empty();
+      (0, import_obsidian.setIcon)(fullscreenBtn, isFullscreen2 ? "minimize" : "maximize");
+      const label = isFullscreen2 ? "Exit fullscreen" : "Fullscreen";
+      fullscreenBtn.setAttr("aria-label", label);
+      fullscreenBtn.setAttr("title", label);
+    };
+    setFullscreenIcon(false);
     const ns = "http://www.w3.org/2000/svg";
     const doc = (_a = el.ownerDocument) != null ? _a : document;
     const svgEl = doc.createElementNS(ns, "svg");
@@ -591,6 +602,28 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
       currentZoom = Math.max(0.2, currentZoom - 0.1);
       applyZoom();
     });
+    const isFullscreen = () => doc.fullscreenElement === container;
+    fullscreenBtn.addEventListener("click", async () => {
+      try {
+        if (isFullscreen()) {
+          await doc.exitFullscreen();
+        } else {
+          await container.requestFullscreen();
+        }
+      } catch (err) {
+        console.error("DBML Visualizer: fullscreen toggle failed", err);
+      }
+    });
+    const onFullscreenChange = () => {
+      if (!container.isConnected) {
+        doc.removeEventListener("fullscreenchange", onFullscreenChange);
+        return;
+      }
+      const fs = isFullscreen();
+      container.classList.toggle("is-fullscreen", fs);
+      setFullscreenIcon(fs);
+    };
+    doc.addEventListener("fullscreenchange", onFullscreenChange);
     let isPanning = false;
     let panStartX = 0;
     let panStartY = 0;
