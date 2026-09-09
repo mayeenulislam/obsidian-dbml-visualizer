@@ -90,6 +90,32 @@
   color: var(--text-muted);
 }
 
+.dbml-erd-fullscreen-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 6px;
+  line-height: 1;
+}
+
+.dbml-erd-fullscreen-btn:hover {
+  background: var(--background-modifier-hover);
+}
+
+.dbml-erd-fullscreen-btn .svg-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.dbml-erd-container:fullscreen,
+.dbml-erd-container.is-fullscreen {
+  max-height: none;
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+}
+
 .dbml-erd-svg {
   cursor: grab;
   transform-origin: 0 0;
