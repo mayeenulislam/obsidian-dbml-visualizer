@@ -24,6 +24,15 @@ interface Relation {
   type: string;
 }
 
+type LayoutName = "left-right" | "pipeline" | "snowflake" | "compact";
+
+const LAYOUT_OPTIONS: { value: LayoutName; label: string }[] = [
+  { value: "left-right", label: "Left-right" },
+  { value: "pipeline", label: "Pipeline" },
+  { value: "snowflake", label: "Snowflake" },
+  { value: "compact", label: "Compact" },
+];
+
 export default class DBMLVisualizerPlugin extends Plugin {
   async onload() {
     const processor = async (
@@ -38,7 +47,12 @@ export default class DBMLVisualizerPlugin extends Plugin {
         }
         const { tables, relations } = this.parseDBML(source);
         const title = await this.extractCodeBlockTitle(source, el, ctx);
-        const { tableMap, bounds } = this.layoutTables(tables, relations);
+        const initialLayout: LayoutName = "left-right";
+        const { tableMap, bounds } = this.layoutTables(
+          tables,
+          relations,
+          initialLayout,
+        );
         this.renderERD(
           el,
           tables,
@@ -46,6 +60,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
           tableMap,
           bounds,
           title ?? undefined,
+          initialLayout,
         );
       } catch (e: unknown) {
         el.createEl("pre", {
@@ -235,10 +250,38 @@ export default class DBMLVisualizerPlugin extends Plugin {
     return { tables, relations };
   }
 
-  layoutTables(tables: Table[], relations: Relation[]) {
-    const tableMap: Record<string, Table> = {};
-    tables.forEach((t) => (tableMap[t.name] = t));
+  layoutTables(
+    tables: Table[],
+    relations: Relation[],
+    layout: LayoutName = "left-right",
+  ) {
+    switch (layout) {
+      case "pipeline":
+        return this.layoutPipeline(tables, relations);
+      case "snowflake":
+        return this.layoutSnowflake(tables, relations);
+      case "compact":
+        return this.layoutCompact(tables, relations);
+      case "left-right":
+      default:
+        return this.layoutLeftRight(tables, relations);
+    }
+  }
 
+  /**
+   * Positions `tables` (mutating their x/y in place) using a topological
+   * layering pass: each table is placed one layer to the right of its
+   * furthest upstream dependency (Kahn's algorithm processed layer by
+   * layer), then rows within a layer are spread vertically until no two
+   * tables overlap. Returns the local (0-based) bounding size.
+   */
+  private layeredPositions(
+    tables: Table[],
+    relations: Relation[],
+    tableMap: Record<string, Table>,
+    xSpacing: number,
+    ySpacing: number,
+  ): { width: number; height: number } {
     const inDegree: Record<string, number> = {};
     const adj: Record<string, string[]> = {};
     tables.forEach((t) => {
@@ -301,8 +344,6 @@ export default class DBMLVisualizerPlugin extends Plugin {
       }
     }
 
-    const xSpacing = 380;
-    const ySpacing = 60;
     let maxRight = 0;
     let maxBottom = 0;
 
@@ -346,10 +387,288 @@ export default class DBMLVisualizerPlugin extends Plugin {
       maxBottom = Math.max(maxBottom, t.y + t.height);
     });
 
+    return { width: maxRight, height: maxBottom };
+  }
+
+  /** Arranges tables left to right following their FK relationship chains. */
+  layoutLeftRight(tables: Table[], relations: Relation[]) {
+    const tableMap: Record<string, Table> = {};
+    tables.forEach((t) => (tableMap[t.name] = t));
+
+    const { width, height } = this.layeredPositions(
+      tables,
+      relations,
+      tableMap,
+      380,
+      60,
+    );
+
+    return {
+      tableMap,
+      bounds: { width: width + 80, height: height + 80 },
+    };
+  }
+
+  /**
+   * Splits the schema into its independently-related clusters (connected
+   * components) and lays out each cluster as its own left-to-right stage,
+   * stacking the clusters vertically. This plugin has no `TableGroup`
+   * syntax to key stages off of, so relationship clusters stand in for it.
+   */
+  layoutPipeline(tables: Table[], relations: Relation[]) {
+    const tableMap: Record<string, Table> = {};
+    tables.forEach((t) => (tableMap[t.name] = t));
+
+    const components = this.connectedComponents(tables, relations);
+
+    const xSpacing = 300;
+    const ySpacing = 40;
+    const componentGap = 60;
+
+    let maxRight = 0;
+    let currentY = 0;
+
+    components.forEach((component) => {
+      const localMap: Record<string, Table> = {};
+      component.forEach((t) => (localMap[t.name] = t));
+
+      const { width, height } = this.layeredPositions(
+        component,
+        relations,
+        localMap,
+        xSpacing,
+        ySpacing,
+      );
+
+      component.forEach((t) => {
+        t.y += currentY;
+      });
+
+      maxRight = Math.max(maxRight, width);
+      currentY += height + componentGap;
+    });
+
+    return {
+      tableMap,
+      bounds: {
+        width: maxRight + 80,
+        height: Math.max(0, currentY - componentGap) + 80,
+      },
+    };
+  }
+
+  /**
+   * Places the most-connected table at the center and arranges the rest in
+   * concentric rings by relationship distance from it — good for star /
+   * snowflake schemas with one clear hub table.
+   */
+  layoutSnowflake(tables: Table[], relations: Relation[]) {
+    const tableMap: Record<string, Table> = {};
+    tables.forEach((t) => (tableMap[t.name] = t));
+
+    if (tables.length === 0) {
+      return { tableMap, bounds: { width: 80, height: 80 } };
+    }
+
+    const undirectedAdj = this.buildUndirectedAdjacency(tables, relations, tableMap);
+
+    let center = tables[0];
+    let bestDegree = -1;
+    tables.forEach((t) => {
+      const degree = undirectedAdj[t.name].length;
+      if (degree > bestDegree) {
+        bestDegree = degree;
+        center = t;
+      }
+    });
+
+    // BFS rings by distance from the center; anything unreachable
+    // (disconnected tables) lands together in one extra outer ring.
+    const ringOf: Record<string, number> = { [center.name]: 0 };
+    const queue = [center.name];
+    let maxRing = 0;
+    while (queue.length > 0) {
+      const name = queue.shift()!;
+      const ring = ringOf[name];
+      undirectedAdj[name].forEach((neighbor) => {
+        if (!(neighbor in ringOf)) {
+          ringOf[neighbor] = ring + 1;
+          maxRing = Math.max(maxRing, ring + 1);
+          queue.push(neighbor);
+        }
+      });
+    }
+    const outerRing = maxRing + 1;
+    tables.forEach((t) => {
+      if (!(t.name in ringOf)) ringOf[t.name] = outerRing;
+    });
+
+    const rings: Table[][] = [];
+    tables.forEach((t) => {
+      const ring = ringOf[t.name];
+      if (!rings[ring]) rings[ring] = [];
+      rings[ring].push(t);
+    });
+
+    const ringGap = 280;
+
+    rings.forEach((ringTables, ringIndex) => {
+      if (!ringTables) return;
+      if (ringIndex === 0) {
+        const t = ringTables[0];
+        t.x = -t.width / 2;
+        t.y = -t.height / 2;
+        return;
+      }
+      const count = ringTables.length;
+      const avgSize =
+        ringTables.reduce((sum, t) => sum + Math.max(t.width, t.height), 0) /
+        count;
+      const minRadius = ringIndex * ringGap;
+      const circumferenceRadius = (count * (avgSize + 40)) / (2 * Math.PI);
+      const radius = Math.max(minRadius, circumferenceRadius);
+
+      ringTables.forEach((t, i) => {
+        const angle = (2 * Math.PI * i) / count - Math.PI / 2;
+        const cx = radius * Math.cos(angle);
+        const cy = radius * Math.sin(angle);
+        t.x = cx - t.width / 2;
+        t.y = cy - t.height / 2;
+      });
+    });
+
+    let minX = 0;
+    let minY = 0;
+    tables.forEach((t) => {
+      minX = Math.min(minX, t.x);
+      minY = Math.min(minY, t.y);
+    });
+
+    let maxRight = 0;
+    let maxBottom = 0;
+    tables.forEach((t) => {
+      t.x -= minX;
+      t.y -= minY;
+      maxRight = Math.max(maxRight, t.x + t.width);
+      maxBottom = Math.max(maxBottom, t.y + t.height);
+    });
+
     return {
       tableMap,
       bounds: { width: maxRight + 80, height: maxBottom + 80 },
     };
+  }
+
+  /**
+   * Arranges every table in a near-square grid, ignoring relationships
+   * entirely. Best for schemas with few/no relations or a lot of tables
+   * where a compact bounding box matters more than lineage.
+   */
+  layoutCompact(tables: Table[], relations: Relation[]) {
+    const tableMap: Record<string, Table> = {};
+    tables.forEach((t) => (tableMap[t.name] = t));
+
+    if (tables.length === 0) {
+      return { tableMap, bounds: { width: 80, height: 80 } };
+    }
+
+    const sorted = tables.slice().sort((a, b) => a.name.localeCompare(b.name));
+    const columns = Math.max(1, Math.ceil(Math.sqrt(sorted.length)));
+    const xSpacing = 40;
+    const ySpacing = 40;
+
+    const colWidths: number[] = [];
+    const rowHeights: number[] = [];
+
+    sorted.forEach((t, i) => {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      colWidths[col] = Math.max(colWidths[col] || 0, t.width);
+      rowHeights[row] = Math.max(rowHeights[row] || 0, t.height);
+    });
+
+    const colX: number[] = [];
+    let x = 0;
+    colWidths.forEach((w, i) => {
+      colX[i] = x;
+      x += w + xSpacing;
+    });
+
+    const rowY: number[] = [];
+    let y = 0;
+    rowHeights.forEach((h, i) => {
+      rowY[i] = y;
+      y += h + ySpacing;
+    });
+
+    let maxRight = 0;
+    let maxBottom = 0;
+
+    sorted.forEach((t, i) => {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      t.x = colX[col];
+      t.y = rowY[row];
+      maxRight = Math.max(maxRight, t.x + t.width);
+      maxBottom = Math.max(maxBottom, t.y + t.height);
+    });
+
+    return {
+      tableMap,
+      bounds: { width: maxRight + 80, height: maxBottom + 80 },
+    };
+  }
+
+  private buildUndirectedAdjacency(
+    tables: Table[],
+    relations: Relation[],
+    tableMap: Record<string, Table>,
+  ): Record<string, string[]> {
+    const adj: Record<string, string[]> = {};
+    tables.forEach((t) => (adj[t.name] = []));
+    relations.forEach((r) => {
+      if (tableMap[r.fromTable] && tableMap[r.toTable]) {
+        adj[r.fromTable].push(r.toTable);
+        adj[r.toTable].push(r.fromTable);
+      }
+    });
+    return adj;
+  }
+
+  /** Groups tables into their weakly-connected components (relationship clusters). */
+  private connectedComponents(
+    tables: Table[],
+    relations: Relation[],
+  ): Table[][] {
+    const tableMap: Record<string, Table> = {};
+    tables.forEach((t) => (tableMap[t.name] = t));
+
+    const adj = this.buildUndirectedAdjacency(tables, relations, tableMap);
+
+    const visited = new Set<string>();
+    const components: Table[][] = [];
+
+    tables.forEach((start) => {
+      if (visited.has(start.name)) return;
+      const component: Table[] = [];
+      const stack = [start.name];
+      visited.add(start.name);
+      while (stack.length > 0) {
+        const name = stack.pop()!;
+        component.push(tableMap[name]);
+        adj[name].forEach((neighbor) => {
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            stack.push(neighbor);
+          }
+        });
+      }
+      components.push(component);
+    });
+
+    // Largest clusters first so the primary "pipelines" land at the top.
+    components.sort((a, b) => b.length - a.length);
+    return components;
   }
 
   escapeXml(unsafe: string) {
@@ -451,6 +770,7 @@ export default class DBMLVisualizerPlugin extends Plugin {
     tableMap: Record<string, Table>,
     bounds: { width: number; height: number },
     title?: string,
+    initialLayout: LayoutName = "left-right",
   ) {
     const container = el.createDiv({ cls: "dbml-erd-container" });
 
@@ -490,6 +810,20 @@ export default class DBMLVisualizerPlugin extends Plugin {
     });
 
     const controlsGroup = rightRegion.createDiv({ cls: "dbml-erd-controls" });
+
+    const layoutSelect = controlsGroup.createEl("select", {
+      cls: "dbml-erd-layout-select",
+    });
+    layoutSelect.setAttr("aria-label", "Diagram layout");
+    LAYOUT_OPTIONS.forEach((opt) => {
+      const optionEl = layoutSelect.createEl("option", {
+        text: opt.label,
+        value: opt.value,
+      });
+      if (opt.value === initialLayout) {
+        optionEl.selected = true;
+      }
+    });
 
     const zoomOutBtn = controlsGroup.createEl("button", {
       text: "−",
@@ -708,6 +1042,28 @@ export default class DBMLVisualizerPlugin extends Plugin {
     zoomOutBtn.addEventListener("click", () => {
       currentZoom = Math.max(0.2, currentZoom - 0.1);
       applyZoom();
+    });
+
+    // Layout switching: recompute positions in place (tables/tableMap are
+    // shared object references), move each table's <g>, then redraw edges.
+    layoutSelect.addEventListener("change", () => {
+      const newLayout = layoutSelect.value as LayoutName;
+      const result = this.layoutTables(tables, relations, newLayout);
+      bounds = result.bounds;
+
+      tableElements.forEach((gEl) => {
+        const name = (gEl as SVGElement).getAttribute("data-table-name");
+        if (!name) return;
+        const t = tableMap[name];
+        if (!t) return;
+        gEl.setAttribute("transform", `translate(${t.x}, ${t.y})`);
+      });
+
+      updateSvgBounds();
+      applyZoom();
+
+      while (pathsGroup.firstChild) pathsGroup.firstChild.remove();
+      this.appendRelationElements(pathsGroup, relations, tableMap);
     });
 
     // Pan/Drag Canvas Logic

@@ -83,6 +83,17 @@
   font-weight: 600;
 }
 
+.dbml-erd-layout-select {
+  background: var(--background-primary);
+  color: var(--text-normal);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-right: 4px;
+}
+
 .dbml-erd-zoom-label {
   min-width: 40px;
   text-align: center;
@@ -102,8 +113,10 @@
 
 g[data-table-name] {
   cursor: grab;
+  transition: transform 0.35s ease;
 }
 
 g[data-table-name].is-dragging {
   cursor: grabbing;
+  transition: none;
 }

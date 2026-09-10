@@ -27,6 +27,12 @@ __export(main_exports, {
 });
 module.exports = __toCommonJS(main_exports);
 var import_obsidian = require("obsidian");
+var LAYOUT_OPTIONS = [
+  { value: "left-right", label: "Left-right" },
+  { value: "pipeline", label: "Pipeline" },
+  { value: "snowflake", label: "Snowflake" },
+  { value: "compact", label: "Compact" },
+];
 var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
   async onload() {
     const processor = async (source, el, ctx) => {
@@ -36,7 +42,12 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
         }
         const { tables, relations } = this.parseDBML(source);
         const title = await this.extractCodeBlockTitle(source, el, ctx);
-        const { tableMap, bounds } = this.layoutTables(tables, relations);
+        const initialLayout = "left-right";
+        const { tableMap, bounds } = this.layoutTables(
+          tables,
+          relations,
+          initialLayout,
+        );
         this.renderERD(
           el,
           tables,
@@ -44,6 +55,7 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
           tableMap,
           bounds,
           title != null ? title : void 0,
+          initialLayout,
         );
       } catch (e) {
         el.createEl("pre", {
@@ -201,9 +213,20 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
     }
     return { tables, relations };
   }
-  layoutTables(tables, relations) {
-    const tableMap = {};
-    tables.forEach((t) => (tableMap[t.name] = t));
+  layoutTables(tables, relations, layout = "left-right") {
+    switch (layout) {
+      case "pipeline":
+        return this.layoutPipeline(tables, relations);
+      case "snowflake":
+        return this.layoutSnowflake(tables, relations);
+      case "compact":
+        return this.layoutCompact(tables, relations);
+      case "left-right":
+      default:
+        return this.layoutLeftRight(tables, relations);
+    }
+  }
+  layeredPositions(tables, relations, tableMap, xSpacing, ySpacing) {
     const inDegree = {};
     const adj = {};
     tables.forEach((t) => {
@@ -258,8 +281,6 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
         queue = nextQueue;
       }
     }
-    const xSpacing = 380;
-    const ySpacing = 60;
     let maxRight = 0;
     let maxBottom = 0;
     layers.forEach((layer, layerIndex) => {
@@ -296,10 +317,224 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
       maxRight = Math.max(maxRight, t.x + t.width);
       maxBottom = Math.max(maxBottom, t.y + t.height);
     });
+    return { width: maxRight, height: maxBottom };
+  }
+  layoutLeftRight(tables, relations) {
+    const tableMap = {};
+    tables.forEach((t) => (tableMap[t.name] = t));
+    const { width, height } = this.layeredPositions(
+      tables,
+      relations,
+      tableMap,
+      380,
+      60,
+    );
+    return {
+      tableMap,
+      bounds: { width: width + 80, height: height + 80 },
+    };
+  }
+  layoutPipeline(tables, relations) {
+    const tableMap = {};
+    tables.forEach((t) => (tableMap[t.name] = t));
+    const components = this.connectedComponents(tables, relations);
+    const xSpacing = 300;
+    const ySpacing = 40;
+    const componentGap = 60;
+    let maxRight = 0;
+    let currentY = 0;
+    components.forEach((component) => {
+      const localMap = {};
+      component.forEach((t) => (localMap[t.name] = t));
+      const { width, height } = this.layeredPositions(
+        component,
+        relations,
+        localMap,
+        xSpacing,
+        ySpacing,
+      );
+      component.forEach((t) => {
+        t.y += currentY;
+      });
+      maxRight = Math.max(maxRight, width);
+      currentY += height + componentGap;
+    });
+    return {
+      tableMap,
+      bounds: {
+        width: maxRight + 80,
+        height: Math.max(0, currentY - componentGap) + 80,
+      },
+    };
+  }
+  layoutSnowflake(tables, relations) {
+    const tableMap = {};
+    tables.forEach((t) => (tableMap[t.name] = t));
+    if (tables.length === 0) {
+      return { tableMap, bounds: { width: 80, height: 80 } };
+    }
+    const undirectedAdj = this.buildUndirectedAdjacency(
+      tables,
+      relations,
+      tableMap,
+    );
+    let center = tables[0];
+    let bestDegree = -1;
+    tables.forEach((t) => {
+      const degree = undirectedAdj[t.name].length;
+      if (degree > bestDegree) {
+        bestDegree = degree;
+        center = t;
+      }
+    });
+    const ringOf = { [center.name]: 0 };
+    const queue = [center.name];
+    let maxRing = 0;
+    while (queue.length > 0) {
+      const name = queue.shift();
+      const ring = ringOf[name];
+      undirectedAdj[name].forEach((neighbor) => {
+        if (!(neighbor in ringOf)) {
+          ringOf[neighbor] = ring + 1;
+          maxRing = Math.max(maxRing, ring + 1);
+          queue.push(neighbor);
+        }
+      });
+    }
+    const outerRing = maxRing + 1;
+    tables.forEach((t) => {
+      if (!(t.name in ringOf)) ringOf[t.name] = outerRing;
+    });
+    const rings = [];
+    tables.forEach((t) => {
+      const ring = ringOf[t.name];
+      if (!rings[ring]) rings[ring] = [];
+      rings[ring].push(t);
+    });
+    const ringGap = 280;
+    rings.forEach((ringTables, ringIndex) => {
+      if (!ringTables) return;
+      if (ringIndex === 0) {
+        const t = ringTables[0];
+        t.x = -t.width / 2;
+        t.y = -t.height / 2;
+        return;
+      }
+      const count = ringTables.length;
+      const avgSize =
+        ringTables.reduce((sum, t) => sum + Math.max(t.width, t.height), 0) /
+        count;
+      const minRadius = ringIndex * ringGap;
+      const circumferenceRadius = (count * (avgSize + 40)) / (2 * Math.PI);
+      const radius = Math.max(minRadius, circumferenceRadius);
+      ringTables.forEach((t, i) => {
+        const angle = (2 * Math.PI * i) / count - Math.PI / 2;
+        const cx = radius * Math.cos(angle);
+        const cy = radius * Math.sin(angle);
+        t.x = cx - t.width / 2;
+        t.y = cy - t.height / 2;
+      });
+    });
+    let minX = 0;
+    let minY = 0;
+    tables.forEach((t) => {
+      minX = Math.min(minX, t.x);
+      minY = Math.min(minY, t.y);
+    });
+    let maxRight = 0;
+    let maxBottom = 0;
+    tables.forEach((t) => {
+      t.x -= minX;
+      t.y -= minY;
+      maxRight = Math.max(maxRight, t.x + t.width);
+      maxBottom = Math.max(maxBottom, t.y + t.height);
+    });
     return {
       tableMap,
       bounds: { width: maxRight + 80, height: maxBottom + 80 },
     };
+  }
+  layoutCompact(tables, relations) {
+    const tableMap = {};
+    tables.forEach((t) => (tableMap[t.name] = t));
+    if (tables.length === 0) {
+      return { tableMap, bounds: { width: 80, height: 80 } };
+    }
+    const sorted = tables.slice().sort((a, b) => a.name.localeCompare(b.name));
+    const columns = Math.max(1, Math.ceil(Math.sqrt(sorted.length)));
+    const xSpacing = 40;
+    const ySpacing = 40;
+    const colWidths = [];
+    const rowHeights = [];
+    sorted.forEach((t, i) => {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      colWidths[col] = Math.max(colWidths[col] || 0, t.width);
+      rowHeights[row] = Math.max(rowHeights[row] || 0, t.height);
+    });
+    const colX = [];
+    let x = 0;
+    colWidths.forEach((w, i) => {
+      colX[i] = x;
+      x += w + xSpacing;
+    });
+    const rowY = [];
+    let y = 0;
+    rowHeights.forEach((h, i) => {
+      rowY[i] = y;
+      y += h + ySpacing;
+    });
+    let maxRight = 0;
+    let maxBottom = 0;
+    sorted.forEach((t, i) => {
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      t.x = colX[col];
+      t.y = rowY[row];
+      maxRight = Math.max(maxRight, t.x + t.width);
+      maxBottom = Math.max(maxBottom, t.y + t.height);
+    });
+    return {
+      tableMap,
+      bounds: { width: maxRight + 80, height: maxBottom + 80 },
+    };
+  }
+  buildUndirectedAdjacency(tables, relations, tableMap) {
+    const adj = {};
+    tables.forEach((t) => (adj[t.name] = []));
+    relations.forEach((r) => {
+      if (tableMap[r.fromTable] && tableMap[r.toTable]) {
+        adj[r.fromTable].push(r.toTable);
+        adj[r.toTable].push(r.fromTable);
+      }
+    });
+    return adj;
+  }
+  connectedComponents(tables, relations) {
+    const tableMap = {};
+    tables.forEach((t) => (tableMap[t.name] = t));
+    const adj = this.buildUndirectedAdjacency(tables, relations, tableMap);
+    const visited = /* @__PURE__ */ new Set();
+    const components = [];
+    tables.forEach((start) => {
+      if (visited.has(start.name)) return;
+      const component = [];
+      const stack = [start.name];
+      visited.add(start.name);
+      while (stack.length > 0) {
+        const name = stack.pop();
+        component.push(tableMap[name]);
+        adj[name].forEach((neighbor) => {
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            stack.push(neighbor);
+          }
+        });
+      }
+      components.push(component);
+    });
+    components.sort((a, b) => b.length - a.length);
+    return components;
   }
   escapeXml(unsafe) {
     return unsafe.replace(/[<>&'"]/g, (c) => {
@@ -380,7 +615,7 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
       parent.appendChild(label);
     });
   }
-  renderERD(el, tables, relations, tableMap, bounds, title) {
+  renderERD(el, tables, relations, tableMap, bounds, title, initialLayout = "left-right") {
     var _a;
     const container = el.createDiv({ cls: "dbml-erd-container" });
     const headerBar = container.createDiv({ cls: "dbml-erd-header" });
@@ -407,6 +642,19 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
       cls: "dbml-erd-hint-text",
     });
     const controlsGroup = rightRegion.createDiv({ cls: "dbml-erd-controls" });
+    const layoutSelect = controlsGroup.createEl("select", {
+      cls: "dbml-erd-layout-select",
+    });
+    layoutSelect.setAttr("aria-label", "Diagram layout");
+    LAYOUT_OPTIONS.forEach((opt) => {
+      const optionEl = layoutSelect.createEl("option", {
+        text: opt.label,
+        value: opt.value,
+      });
+      if (opt.value === initialLayout) {
+        optionEl.selected = true;
+      }
+    });
     const zoomOutBtn = controlsGroup.createEl("button", {
       text: "\u2212",
       cls: "dbml-erd-btn",
@@ -590,6 +838,22 @@ var DBMLVisualizerPlugin = class extends import_obsidian.Plugin {
     zoomOutBtn.addEventListener("click", () => {
       currentZoom = Math.max(0.2, currentZoom - 0.1);
       applyZoom();
+    });
+    layoutSelect.addEventListener("change", () => {
+      const newLayout = layoutSelect.value;
+      const result = this.layoutTables(tables, relations, newLayout);
+      bounds = result.bounds;
+      tableElements.forEach((gEl) => {
+        const name = gEl.getAttribute("data-table-name");
+        if (!name) return;
+        const t = tableMap[name];
+        if (!t) return;
+        gEl.setAttribute("transform", `translate(${t.x}, ${t.y})`);
+      });
+      updateSvgBounds();
+      applyZoom();
+      while (pathsGroup.firstChild) pathsGroup.firstChild.remove();
+      this.appendRelationElements(pathsGroup, relations, tableMap);
     });
     let isPanning = false;
     let panStartX = 0;
